@@ -3,25 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lade Op Maat - 3D Configurator</title>
+    <title>Uw Bedrijfsnaam - Lade-Indeling Configurator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/DragControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/dist/index.js"></script>
+
     <style>
-        body { margin: 0; overflow: hidden; background-color: #f4f4f4; }
-        #container { width: 100vw; height: 100vh; position: relative; }
-        #sidebar {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 250px;
+        /* GLOBALE STIJLEN */
+        :root {
+            --primary-color: #0275d8; /* Blauw */
+            --secondary-color: #f0ad4e; /* Oranje */
+            --dark-text: #333;
+            --light-bg: #f4f4f4;
+            --panel-bg: rgba(255, 255, 255, 0.95);
+        }
+
+        body { 
+            margin: 0; 
+            font-family: 'Arial', sans-serif; 
+            background-color: var(--light-bg); 
+            color: var(--dark-text);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* HEADER & FOOTER */
+        #header {
+            background-color: var(--dark-text);
+            color: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 200;
+        }
+        #header h1 {
+            margin: 0;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+        #header nav a {
+            color: white;
+            text-decoration: none;
+            margin-left: 20px;
+            font-weight: bold;
+            transition: color 0.3s;
+        }
+        #header nav a:hover {
+            color: var(--secondary-color);
+        }
+
+        /* MAIN LAYOUT CONTAINER (3D en Sidebar) */
+        #main-container {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+        }
+        #container { 
+            flex-grow: 1;
+            position: relative; 
             height: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            font-family: sans-serif;
-            z-index: 100;
-            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        /* SIDEBAR (Configurator Paneel) */
+        #sidebar {
+            width: 300px; /* Iets breder voor een mooier design */
+            min-width: 300px;
+            height: 100%;
+            background: var(--panel-bg);
+            padding: 20px;
+            box-shadow: -4px 0 10px rgba(0, 0, 0, 0.1);
             display: flex;
             flex-direction: column;
             overflow-y: auto;
+            position: absolute;
+            right: 0;
+            top: 0;
+            z-index: 100;
         }
+        
+        /* FORM STIJLEN */
         .input-group {
             margin-bottom: 15px;
             padding-bottom: 10px;
@@ -30,111 +97,65 @@
         .input-group label {
             display: block;
             margin-bottom: 5px;
-            font-weight: bold;
+            font-weight: 600;
             font-size: 14px;
         }
         .input-group input, .input-group select {
-            width: 80%;
-            padding: 5px;
+            width: 90%;
+            padding: 8px;
             border: 1px solid #ccc;
-            border-radius: 3px;
+            border-radius: 4px;
         }
+        
+        /* KNOP STIJLEN */
         .button-group {
             display: flex;
             justify-content: space-between;
             margin-top: 10px; 
         }
-        #updateButton, #updateVakButton, #addDividerV_Partial, #addDividerH_Partial, #addDividerV_Full, #addDividerH_Full, #resetButton, #deleteDividerButton, #exportButton, #renderDetailsButton, #toggleExplodedViewButton { 
-            background-color: #4CAF50;
-            color: white;
+        button {
             padding: 10px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px; 
             margin-top: 5px; 
+            font-weight: bold;
+            transition: background-color 0.3s;
         }
-        #updateButton:hover, #updateVakButton:hover, #addDividerV_Partial:hover, #addDividerH_Partial:hover, #addDividerV_Full:hover, #addDividerH_Full:hover, #resetButton:hover, #deleteDividerButton:hover, #exportButton:hover, #renderDetailsButton:hover, #toggleExplodedViewButton:hover {
-            background-color: #45a049;
-        }
-        
-        #addDividerV_Partial, #addDividerH_Partial, #addDividerV_Full, #addDividerH_Full { 
-            background-color: #f0ad4e; 
+
+        #updateButton, #updateVakButton { background-color: #28a745; color: white; }
+        #updateButton:hover, #updateVakButton:hover { background-color: #218838; }
+
+        #addDividerV_Partial, #addDividerH_Partial, #addDividerV_Full, #addDividerH_Full, #renderDetailsButton { 
+            background-color: var(--secondary-color); 
+            color: var(--dark-text);
             width: 48%; 
         }
-        #addDividerV_Partial:hover, #addDividerH_Partial:hover, #addDividerV_Full:hover, #addDividerH_Full:hover { 
-            background-color: #ec9b2d; 
+        #addDividerV_Partial:hover, #addDividerH_Partial:hover, #addDividerV_Full:hover, #addDividerH_Full:hover, #renderDetailsButton:hover { 
+            background-color: #e09d2e; 
         }
         
-        #resetButton, #exportButton { background-color: #5bc0de; width: 100%; }
-        #resetButton:hover, #exportButton:hover { background-color: #31b0d5; }
+        #resetButton { background-color: #5bc0de; width: 100%; }
+        #resetButton:hover { background-color: #31b0d5; }
+        
+        #exportButton, #toggleExplodedViewButton { background-color: var(--primary-color); color: white; width: 100%; }
+        #exportButton:hover, #toggleExplodedViewButton:hover { background-color: #025aa5; }
 
-        #exportButton {
-            background-color: #0275d8; /* Blauw */
-            margin-top: 10px; /* Zorgt voor ruimte onder de reset knop */
-        }
-        #exportButton:hover {
-            background-color: #025aa5;
-        }
-
-        #renderDetailsButton {
-            background-color: #f0ad4e; /* Oranje, net als de 'Splits' knoppen */
-            width: 100%;
-            margin-top: 10px;
-        }
-        #renderDetailsButton:hover {
-            background-color: #ec9b2d;
-        }
-
-        #toggleExplodedViewButton {
-            background-color: #0275d8; /* Blauw */
-            width: 100%;
-            margin-top: 10px;
-            display: none; /* Standaard verborgen */
-        }
-        #toggleExplodedViewButton:hover {
-            background-color: #025aa5;
-        }
-
-
-        /* --- STIJLEN VOOR DE VERWIJDERKNOP --- */
         #deleteDividerButton {
-            background-color: #d9534f; /* Rood */
+            background-color: #d9534f;
             width: 100%;
             margin-top: 10px;
         }
         #deleteDividerButton:hover {
-            background-color: #c9302c; /* Donkerder rood */
+            background-color: #c9302c;
         }
         #deleteDividerButton.active-delete {
             background-color: #ff0000;
             box-shadow: 0 0 10px rgba(255,0,0,0.7);
             border: 2px solid #fff;
         }
-        /* --- EINDE NIEUWE STIJLEN --- */
 
-        .dimension-label {
-            color: #000;
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: sans-serif;
-            font-size: 10px;
-            font-weight: bold;
-            white-space: nowrap;
-            pointer-events: none; 
-        }
-        #vakEditor {
-            border-top: 2px solid #aaa;
-            margin-top: 20px;
-            padding-top: 15px;
-            display: none; 
-        }
-        #vakEditor h3 { margin-top: 0; }
-        #vakIdDisplay { font-weight: bold; font-size: 16px; color: #333; }
-        #updateVakButton { background-color: #008CBA; }
-        #updateVakButton:hover { background-color: #007B9E; }
-        
         #loadingOverlay {
             position: absolute;
             top: 0;
@@ -149,85 +170,106 @@
             font-family: sans-serif;
             z-index: 1000;
         }
+        
+        /* FOOTER */
+        #footer {
+            background-color: var(--dark-text);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 12px;
+            z-index: 200;
+        }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/DragControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/dist/index.js"></script>
 </head>
 <body>
-    <div id="container"></div>
+    
+    <header id="header">
+        <h1>🛠️ Uw Bedrijfsnaam</h1>
+        <nav>
+            <a href="#">Configurator</a>
+            <a href="#">Over Ons</a>
+            <a href="#">Contact</a>
+        </nav>
+    </header>
 
-    <div id="sidebar">
-        <h2 style="margin-bottom: 5px;">Lade Op Maat</h2>
-        <p style="font-size: 14px; margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">
-            Welkom! Configureer hier uw perfecte lade-indeling.
-        </p>
+    <div id="main-container">
+        <div id="container"></div>
 
-        <h2>🛠️ Lade Parameters (mm)</h2>
-        <div class="input-group">
-            <label for="materialSelect">Materiaal Keuze</label>
-            <select id="materialSelect" onchange="updateDrawerDimensions(false)">
-                <option value="light_oak" selected>Licht Eiken</option>
-                <option value="dark_walnut">Donker Noten</option>
-            </select>
-        </div>
+        <div id="sidebar">
+            <h2 style="border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-top: 0;">Lade Ontwerp Studio (mm)</h2>
 
-        <div class="input-group">
-            <label for="drawerWidthInput">Breedte (W) Buitenmaat</label>
-            <input type="number" id="drawerWidthInput" value="600" min="200" step="1">
-            <label for="drawerDepthInput">Diepte (D) Buitenmaat</label>
-            <input type="number" id="drawerDepthInput" value="500" min="200" step="1">
-            <label for="drawerHeightInput">Hoogte (H)</label>
-            <input type="number" id="drawerHeightInput" value="50" min="20" step="1">
-        </div>
-        
-        <button id="updateButton" onclick="updateDrawerDimensions(true)">Pas Lade Aan</button>
-        
-        <div class="button-group">
-            <button id="addDividerV_Partial" onclick="startAddDivider('partial_vertical')">(V) Splits (Partieel)</button>
-            <button id="addDividerH_Partial" onclick="startAddDivider('partial_horizontal')">(H) Splits (Partieel)</button>
-        </div>
-        <div class="button-group">
-            <button id="addDividerV_Full" onclick="startAddDivider('full_vertical')">(V) Splits (Volledig)</button>
-            <button id="addDividerH_Full" onclick="startAddDivider('full_horizontal')">(H) Splits (Volledig)</button>
-        </div>
-                 
-        <button id="resetButton" onclick="resetLayout()">Reset (1 Vak)</button>
-        
-        <hr>
-        <button id="exportButton" onclick="exportSawList()">📊 Exporteer Productie JSON</button>
-        <button id="renderDetailsButton" onclick="buildDetailedModel()">🛠️ Bekijk Verbindingen</button>
-        <button id="toggleExplodedViewButton" onclick="toggleExplodedView()">⇆ Schuif In/Uit Elkaar</button>
-        <hr>
-
-        <button id="deleteDividerButton" onclick="startDeleteDivider()">🗑️ Verwijder Lat</button>
-
-        <hr>
-        <p id="layout-status">Status:</p>
-
-        <div id="vakEditor">
-            <h3>Geselecteerd Vak</h3>
             <div class="input-group">
-                <label>Vak ID:</label>
-                <span id="vakIdDisplay">Geen</span>
+                <label for="materialSelect">Materiaal Keuze</label>
+                <select id="materialSelect" onchange="updateDrawerDimensions(false)">
+                    <option value="light_oak" selected>Licht Eiken</option>
+                    <option value="dark_walnut">Donker Noten</option>
+                </select>
             </div>
+
             <div class="input-group">
-                <label for="vakWidthInput">Breedte (mm) Binnenmaat</label>
-                <input type="number" id="vakWidthInput" step="1">
+                <label for="drawerWidthInput">Breedte (W) Buitenmaat</label>
+                <input type="number" id="drawerWidthInput" value="600" min="200" step="1">
+                <label for="drawerDepthInput">Diepte (D) Buitenmaat</label>
+                <input type="number" id="drawerDepthInput" value="500" min="200" step="1">
+                <label for="drawerHeightInput">Hoogte (H)</label>
+                <input type="number" id="drawerHeightInput" value="50" min="20" step="1">
             </div>
-            <div class="input-group">
-                <label for="vakHeightInput">Diepte (mm) Binnenmaat</label>
-                <input type="number" id="vakHeightInput" step="1">
+            
+            <button id="updateButton" onclick="updateDrawerDimensions(true)">Pas Lade Aan</button>
+            
+            <hr style="margin: 15px 0;">
+            <p style="font-weight: bold; margin-bottom: 5px;">Indeling Splitsen/Bewerken</p>
+            <div class="button-group">
+                <button id="addDividerV_Partial" onclick="startAddDivider('partial_vertical')">(V) Splits (Partieel)</button>
+                <button id="addDividerH_Partial" onclick="startAddDivider('partial_horizontal')">(H) Splits (Partieel)</button>
             </div>
-            <button id="updateVakButton" onclick="handleVakUpdateFromSidebar()">Pas Vak Aan</button>
+            <div class="button-group">
+                <button id="addDividerV_Full" onclick="startAddDivider('full_vertical')">(V) Splits (Volledig)</button>
+                <button id="addDividerH_Full" onclick="startAddDivider('full_horizontal')">(H) Splits (Volledig)</button>
+            </div>
+                     
+            <button id="resetButton" onclick="resetLayout()">Reset (1 Vak)</button>
+            
+            <hr style="margin: 15px 0;">
+            <button id="exportButton" onclick="exportSawList()">📊 Exporteer Productie JSON</button>
+            <button id="renderDetailsButton" onclick="buildDetailedModel()">🛠️ Bekijk Verbindingen</button>
+            <button id="toggleExplodedViewButton" onclick="toggleExplodedView()">⇆ Schuif In/Uit Elkaar</button>
+            <hr style="margin: 15px 0;">
+
+            <button id="deleteDividerButton" onclick="startDeleteDivider()">🗑️ Verwijder Lat</button>
+
+            <hr style="margin: 15px 0;">
+            <p id="layout-status" style="font-size: 14px; font-style: italic;">Status: Initialisatie...</p>
+
+            <div id="vakEditor">
+                <h3>Geselecteerd Vak</h3>
+                <div class="input-group">
+                    <label>Vak ID:</label>
+                    <span id="vakIdDisplay">Geen</span>
+                </div>
+                <div class="input-group">
+                    <label for="vakWidthInput">Breedte (mm) Binnenmaat</label>
+                    <input type="number" id="vakWidthInput" step="1">
+                </div>
+                <div class="input-group">
+                    <label for="vakHeightInput">Diepte (mm) Binnenmaat</label>
+                    <input type="number" id="vakHeightInput" step="1">
+                </div>
+                <button id="updateVakButton" onclick="handleVakUpdateFromSidebar()">Pas Vak Aan</button>
+            </div>
         </div>
-    </div>
+        </div>
     
     <div id="loadingOverlay">Texturen laden...</div>
 
+    <footer id="footer">
+        &copy; 2025 Uw Bedrijfsnaam. Alle rechten voorbehouden.
+    </footer>
+
     <script>
+        // *** START VAN ALLE JAVASCRIPT LOGICA ***
+
         // --- Globale Setup en Parameters ---
         let scene, camera, renderer, controls, dragControls;
         let labelRenderer; 
@@ -365,8 +407,8 @@
             const crossAxis_3D = isVertical ? 'z' : 'x';
             const crossDim_Geom = isVertical ? 'depth' : 'width';
 
-            const vakAList = []; // left/top
-            const vakBList = []; // right/bottom
+            const vakAList = [];
+            const vakBList = [];
 
             for (const vak of layoutData) {
                 const vakCenter_Data = vak[axis];
@@ -406,16 +448,13 @@
         // --- Three.js Renderer (AANGEPAST) ---
         function renderDrawerLayout(layoutData, totalW, totalD, wallT, ladeH) {
             
-            // Verberg het gedetailleerde model als het bestaat
             const detailedLayout = scene.getObjectByName('DetailedLayout');
             if (detailedLayout) {
-                scene.remove(detailedLayout); // Verwijder het
+                scene.remove(detailedLayout); 
             }
             
-            // Verberg de wisselknop
             document.getElementById('toggleExplodedViewButton').style.display = 'none'; 
             
-            // Verwijder het oude simpele model
             const oldLayout = scene.getObjectByName('DrawerLayout');
 
             if (oldLayout) {
@@ -1060,7 +1099,6 @@
             raycaster.setFromCamera(mouse, camera);
             
             if (addDividerMode) {
-                // MODUS: LAT TOEVOEGEN
                 const intersects = raycaster.intersectObjects(clickableVakMeshes); 
                 
                 if (intersects.length > 0) {
@@ -1132,7 +1170,6 @@
                 resetClickMode(false); 
 
             } else {
-                // MODUS: SELECTEREN
                 const intersects = raycaster.intersectObjects(clickableVakMeshes); 
                 if (intersects.length > 0) {
                     const clickedVakId = intersects[0].object.userData.vakId;
@@ -1169,10 +1206,6 @@
                 selectedVakId = null;
             }
         }
-        
-        // ---
-        // --- HIER BEGINT DE CODE VOOR CSG EN DE EXPORT ---
-        // ---
         
         // --- HELPER FUNCTIE: BEREKENT ALLE ONDERDELEN ---
         function getLayoutParts() {
@@ -1292,7 +1325,6 @@
             const parts = getLayoutParts();
             let productionData = [];
 
-            // --- 1. Bereken alle snedes (Cuts) ---
             const wallT = WALL_THICKNESS;
             const dadoDepth = wallT / 2; 
 
@@ -1300,7 +1332,7 @@
             const verticalDividers = internalDividers.filter(p => p.isVertical);
             const horizontalDividers = internalDividers.filter(p => !p.isVertical);
 
-            let allCuts = {}; // { partId: [ {type: 'dado', ...}, {type: 'lap', ...} ] }
+            let allCuts = {}; 
 
             const addCut = (targetId, cutData) => {
                 if (!allCuts[targetId]) allCuts[targetId] = [];
@@ -1317,9 +1349,9 @@
                     if (Math.abs((pos.x - halfLen) - (outerWalls['wall_left'].x + wallT / 2)) < TOLERANCE) {
                         addCut('wall_left', {
                             type: 'dado',
-                            axis: 'z', // Freesrichting
+                            axis: 'z', 
                             center: pos.z.toFixed(2),
-                            length: divider.depth.toFixed(2), // Dikte van lat
+                            length: divider.depth.toFixed(2), 
                             depth: dadoDepth.toFixed(2)
                         });
                     }
@@ -1339,9 +1371,9 @@
                     if (Math.abs((pos.z - halfLen) - (outerWalls['wall_back'].z + wallT / 2)) < TOLERANCE) {
                         addCut('wall_back', {
                             type: 'dado',
-                            axis: 'x', // Freesrichting
+                            axis: 'x', 
                             center: pos.x.toFixed(2),
-                            length: divider.width.toFixed(2), // Dikte van lat
+                            length: divider.width.toFixed(2), 
                             depth: dadoDepth.toFixed(2)
                         });
                     }
@@ -1375,15 +1407,15 @@
                         
                         addCut(hDiv.id, {
                             type: 'lap',
-                            center: vDiv.position.x.toFixed(2), // X-positie op de plank
-                            length: wallT.toFixed(2), // Breedte van de lap
+                            center: vDiv.position.x.toFixed(2), 
+                            length: wallT.toFixed(2), 
                             depth: lapDepth,
                             side: 'top'
                         });
 
                         addCut(vDiv.id, {
                             type: 'lap',
-                            center: hDiv.position.z.toFixed(2), // Z-positie op de plank
+                            center: hDiv.position.z.toFixed(2), 
                             length: wallT.toFixed(2), 
                             depth: lapDepth,
                             side: 'bottom'
@@ -1496,7 +1528,6 @@
             const parts = getLayoutParts();
             const wallT = WALL_THICKNESS;
             
-            // ANTI-COPLANAR FIX
             const FIX_OVERLAP = 1; 
             const dadoDepth = (wallT / 2) + FIX_OVERLAP; 
             
@@ -1680,7 +1711,7 @@
             try {
                 const container = document.getElementById('container');
                 const width = container.clientWidth;
-                const height = window.innerHeight; 
+                const height = window.innerHeight - document.getElementById('header').offsetHeight - document.getElementById('footer').offsetHeight; 
 
                 scene = new THREE.Scene();
                 scene.background = new THREE.Color(0xf4f4f4);
@@ -1716,7 +1747,6 @@
                 
                 renderer.domElement.addEventListener('click', onSceneClick, false);
                 
-                // Textuur lader
                 const loadingManager = new THREE.LoadingManager();
                 loadingManager.onStart = function (url, itemsLoaded, itemsTotal) {
                     document.getElementById('loadingOverlay').style.display = 'flex';
@@ -1760,7 +1790,7 @@
         function onWindowResize() {
             const container = document.getElementById('container');
             const width = container.clientWidth;
-            const height = window.innerHeight; 
+            const height = window.innerHeight - document.getElementById('header').offsetHeight - document.getElementById('footer').offsetHeight;
             
             camera.aspect = width / height;
             camera.updateProjectionMatrix();

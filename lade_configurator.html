@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lade Op Maat - 3D Configurator</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #f4f4f4; }
+        #container { width: 100vw; height: 100vh; position: relative; }
+        #sidebar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 250px;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            font-family: sans-serif;
+            z-index: 100;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .input-group input, .input-group select {
+            width: 80%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px; 
+        }
+        #updateButton, #updateVakButton, #addDividerV_Partial, #addDividerH_Partial, #addDividerV_Full, #addDividerH_Full, #resetButton, #deleteDividerButton, #exportButton, #renderDetailsButton, #toggleExplodedViewButton { 
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px; 
+            margin-top: 5px; 
+        }
+        #updateButton:hover, #updateVakButton:hover, #addDividerV_Partial:hover, #addDividerH_Partial:hover, #addDividerV_Full:hover, #addDividerH_Full:hover, #resetButton:hover, #deleteDividerButton:hover, #exportButton:hover, #renderDetailsButton:hover, #toggleExplodedViewButton:hover {
+            background-color: #45a049;
+        }
+        
+        #addDividerV_Partial, #addDividerH_Partial, #addDividerV_Full, #addDividerH_Full { 
+            background-color: #f0ad4e; 
+            width: 48%; 
+        }
+        #addDividerV_Partial:hover, #addDividerH_Partial:hover, #addDividerV_Full:hover, #addDividerH_Full:hover { 
+            background-color: #ec9b2d; 
+        }
+        
+        #resetButton, #exportButton { background-color: #5bc0de; width: 100%; }
+        #resetButton:hover, #exportButton:hover { background-color: #31b0d5; }
+
+        #exportButton {
+            background-color: #0275d8; /* Blauw */
+            margin-top: 10px; /* Zorgt voor ruimte onder de reset knop */
+        }
+        #exportButton:hover {
+            background-color: #025aa5;
+        }
+
+        #renderDetailsButton {
+            background-color: #f0ad4e; /* Oranje, net als de 'Splits' knoppen */
+            width: 100%;
+            margin-top: 10px;
+        }
+        #renderDetailsButton:hover {
+            background-color: #ec9b2d;
+        }
+
+        #toggleExplodedViewButton {
+            background-color: #0275d8; /* Blauw */
+            width: 100%;
+            margin-top: 10px;
+            display: none; /* Standaard verborgen */
+        }
+        #toggleExplodedViewButton:hover {
+            background-color: #025aa5;
+        }
+
+
+        /* --- STIJLEN VOOR DE VERWIJDERKNOP --- */
+        #deleteDividerButton {
+            background-color: #d9534f; /* Rood */
+            width: 100%;
+            margin-top: 10px;
+        }
+        #deleteDividerButton:hover {
+            background-color: #c9302c; /* Donkerder rood */
+        }
+        #deleteDividerButton.active-delete {
+            background-color: #ff0000;
+            box-shadow: 0 0 10px rgba(255,0,0,0.7);
+            border: 2px solid #fff;
+        }
+        /* --- EINDE NIEUWE STIJLEN --- */
+
+        .dimension-label {
+            color: #000;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: sans-serif;
+            font-size: 10px;
+            font-weight: bold;
+            white-space: nowrap;
+            pointer-events: none; 
+        }
+        #vakEditor {
+            border-top: 2px solid #aaa;
+            margin-top: 20px;
+            padding-top: 15px;
+            display: none; 
+        }
+        #vakEditor h3 { margin-top: 0; }
+        #vakIdDisplay { font-weight: bold; font-size: 16px; color: #333; }
+        #updateVakButton { background-color: #008CBA; }
+        #updateVakButton:hover { background-color: #007B9E; }
+        
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-family: sans-serif;
+            z-index: 1000;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/DragControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/dist/index.js"></script>
+</head>
+<body>
+    <div id="container"></div>
+
+    <div id="sidebar">
+        <h2 style="margin-bottom: 5px;">Lade Op Maat</h2>
+        <p style="font-size: 14px; margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 15px;">
+            Welkom! Configureer hier uw perfecte lade-indeling.
+        </p>
+
+        <h2>🛠️ Lade Parameters (mm)</h2>
+        <div class="input-group">
+            <label for="materialSelect">Materiaal Keuze</label>
+            <select id="materialSelect" onchange="updateDrawerDimensions(false)">
+                <option value="light_oak" selected>Licht Eiken</option>
+                <option value="dark_walnut">Donker Noten</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="drawerWidthInput">Breedte (W) Buitenmaat</label>
+            <input type="number" id="drawerWidthInput" value="600" min="200" step="1">
+            <label for="drawerDepthInput">Diepte (D) Buitenmaat</label>
+            <input type="number" id="drawerDepthInput" value="500" min="200" step="1">
+            <label for="drawerHeightInput">Hoogte (H)</label>
+            <input type="number" id="drawerHeightInput" value="50" min="20" step="1">
+        </div>
+        
+        <button id="updateButton" onclick="updateDrawerDimensions(true)">Pas Lade Aan</button>
+        
+        <div class="button-group">
+            <button id="addDividerV_Partial" onclick="startAddDivider('partial_vertical')">(V) Splits (Partieel)</button>
+            <button id="addDividerH_Partial" onclick="startAddDivider('partial_horizontal')">(H) Splits (Partieel)</button>
+        </div>
+        <div class="button-group">
+            <button id="addDividerV_Full" onclick="startAddDivider('full_vertical')">(V) Splits (Volledig)</button>
+            <button id="addDividerH_Full" onclick="startAddDivider('full_horizontal')">(H) Splits (Volledig)</button>
+        </div>
+                 
+        <button id="resetButton" onclick="resetLayout()">Reset (1 Vak)</button>
+        
+        <hr>
+        <button id="exportButton" onclick="exportSawList()">📊 Exporteer Productie JSON</button>
+        <button id="renderDetailsButton" onclick="buildDetailedModel()">🛠️ Bekijk Verbindingen</button>
+        <button id="toggleExplodedViewButton" onclick="toggleExplodedView()">⇆ Schuif In/Uit Elkaar</button>
+        <hr>
+
+        <button id="deleteDividerButton" onclick="startDeleteDivider()">🗑️ Verwijder Lat</button>
+
+        <hr>
+        <p id="layout-status">Status:</p>
+
+        <div id="vakEditor">
+            <h3>Geselecteerd Vak</h3>
+            <div class="input-group">
+                <label>Vak ID:</label>
+                <span id="vakIdDisplay">Geen</span>
+            </div>
+            <div class="input-group">
+                <label for="vakWidthInput">Breedte (mm) Binnenmaat</label>
+                <input type="number" id="vakWidthInput" step="1">
+            </div>
+            <div class="input-group">
+                <label for="vakHeightInput">Diepte (mm) Binnenmaat</label>
+                <input type="number" id="vakHeightInput" step="1">
+            </div>
+            <button id="updateVakButton" onclick="handleVakUpdateFromSidebar()">Pas Vak Aan</button>
+        </div>
+    </div>
+    
+    <div id="loadingOverlay">Texturen laden...</div>
+
+    <script>
+        // --- Globale Setup en Parameters ---
+        let scene, camera, renderer, controls, dragControls;
+        let labelRenderer; 
+        let raycaster; 
+        let mouse; 
+
+        const WALL_THICKNESS = 9;
+        const BODEM_DIKTE = 4;
+        let LADE_HOOGTE = 50; 
+        
+        const MIN_DIMENSION = 40;
+        const TOLERANCE = 1; 
+        const SNAP_THRESHOLD = 5; 
+        const MIDDLE_SNAP_THRESHOLD = 10; 
+        
+        let currentLayoutData = []; 
+        let wallsArray = []; 
+        let clickableVakMeshes = []; 
+        let baseMesh; 
+
+        let DRAW_W = 600; 
+        let DRAW_D = 500; 
+        
+        let selectedVakId = null; 
+        let addDividerMode = null; 
+        let isDeletingDivider = false; 
+        let nextVakId = 2; 
+
+        let isExplodedView = true;
+
+        // --- TEXTUUR VARIABELEN ---
+        let textureLoader;
+        let woodTexture;
+        let activeWoodMaterial; 
+
+        // --- HULP FUNCTIE: KRIJG HUIDIGE HOUTMATERIAAL ---
+        function getWoodMaterial(materialKey) {
+            let baseColor;
+
+            switch (materialKey) {
+                case 'light_oak':
+                    baseColor = 0xffffff; 
+                    break;
+                case 'dark_walnut':
+                    baseColor = 0x7B5833; 
+                    break;
+                default:
+                    baseColor = 0xffffff;
+            }
+
+            if (woodTexture) {
+                woodTexture.wrapS = THREE.ClampToEdgeWrapping;
+                woodTexture.wrapT = THREE.ClampToEdgeWrapping;
+                woodTexture.repeat.set(1, 1);
+                
+                return new THREE.MeshLambertMaterial({ 
+                    map: woodTexture,
+                    color: baseColor 
+                });
+            } else {
+                return new THREE.MeshLambertMaterial({ color: baseColor });
+            }
+        }
+
+        // --- UI FUNCTIE: UPDATE AFMETINGEN ---
+        function updateDrawerDimensions(resetLayoutData = false) {
+            const newW = parseInt(document.getElementById('drawerWidthInput').value);
+            const newD = parseInt(document.getElementById('drawerDepthInput').value);
+            const newH = parseInt(document.getElementById('drawerHeightInput').value); 
+
+            if (isNaN(newW) || isNaN(newD) || isNaN(newH) || newW < 200 || newD < 200 || newH < 20) {
+                if (resetLayoutData) { 
+                    alert("Voer geldige afmetingen in (min B/D: 200mm, min H: 20mm).");
+                }
+                renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+                return;
+            }
+            
+            DRAW_W = newW;
+            DRAW_D = newD;
+            LADE_HOOGTE = newH; 
+            
+            if (resetLayoutData) { 
+                const innerW = DRAW_W - (2 * WALL_THICKNESS);
+                const innerD = DRAW_D - (2 * WALL_THICKNESS);
+
+                if (innerW < MIN_DIMENSION || innerD < MIN_DIMENSION) {
+                    alert("Fout: Lade is te klein voor de muurdikte. Maak de lade groter.");
+                    return;
+                }
+
+                currentLayoutData = [
+                    {
+                        id: 'V1',
+                        x: 0, 
+                        y: 0, 
+                        width: innerW, 
+                        height: innerD 
+                    }
+                ];
+                nextVakId = 2; 
+            }
+
+            const selectedMaterialKey = document.getElementById('materialSelect').value;
+            activeWoodMaterial = getWoodMaterial(selectedMaterialKey);
+
+            renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+            
+            document.getElementById('vakEditor').style.display = 'none';
+            selectedVakId = null;
+            document.getElementById('layout-status').innerText = `Lade: ${DRAW_W}x${DRAW_D}x${LADE_HOOGTE}mm | Vakken: ${currentLayoutData.length}`;
+
+            if (resetLayoutData) {
+                camera.position.set(0, DRAW_D * 1.5, 0); 
+                camera.lookAt(0, 0, 0); 
+                camera.updateProjectionMatrix(); 
+            }
+        }
+
+        // --- UI FUNCTIE ---
+        function resetLayout() {
+            updateDrawerDimensions(true);
+        }
+
+        // --- GECORRIGEERDE FUNCTIE ---
+        function findDirectNeighbors(wallMesh, layoutData) {
+            const isVertical = wallMesh.userData.isVertical;
+            const wallPosition = isVertical ? wallMesh.position.x : wallMesh.position.z;
+            
+            const axis = isVertical ? 'x' : 'y';
+            const dim = isVertical ? 'width' : 'height';
+            const crossAxis_Data = isVertical ? 'y' : 'x';
+            const crossDim_Data = isVertical ? 'height' : 'width';
+
+            const crossAxis_3D = isVertical ? 'z' : 'x';
+            const crossDim_Geom = isVertical ? 'depth' : 'width';
+
+            const vakAList = []; // left/top
+            const vakBList = []; // right/bottom
+
+            for (const vak of layoutData) {
+                const vakCenter_Data = vak[axis];
+                const vakSize_Data = vak[dim];
+                
+                const expectedWallB = vakCenter_Data + vakSize_Data / 2 + WALL_THICKNESS / 2;
+                if (Math.abs(expectedWallB - wallPosition) < TOLERANCE) {
+                    const wallMin = wallMesh.position[crossAxis_3D] - wallMesh.geometry.parameters[crossDim_Geom] / 2;
+                    const wallMax = wallMesh.position[crossAxis_3D] + wallMesh.geometry.parameters[crossDim_Geom] / 2;
+                    const vakMin = vak[crossAxis_Data] - vak[crossDim_Data] / 2;
+                    const vakMax = vak[crossAxis_Data] + vak[crossDim_Data] / 2;
+                    
+                    if (Math.max(wallMin, vakMin) < Math.min(wallMax, vakMax) - TOLERANCE) {
+                          vakAList.push(vak);
+                    }
+                }
+                
+                const expectedWallA = vakCenter_Data - vakSize_Data / 2 - WALL_THICKNESS / 2;
+                if (Math.abs(expectedWallA - wallPosition) < TOLERANCE) {
+                    const wallMin = wallMesh.position[crossAxis_3D] - wallMesh.geometry.parameters[crossDim_Geom] / 2;
+                    const wallMax = wallMesh.position[crossAxis_3D] + wallMesh.geometry.parameters[crossDim_Geom] / 2;
+                    const vakMin = vak[crossAxis_Data] - vak[crossDim_Data] / 2;
+                    const vakMax = vak[crossAxis_Data] + vak[crossDim_Data] / 2;
+                    
+                    if (Math.max(wallMin, vakMin) < Math.min(wallMax, vakMax) - TOLERANCE) {
+                        vakBList.push(vak);
+                    }
+                }
+            }
+
+            if (vakAList.length > 0 && vakBList.length > 0) {
+                return [vakAList, vakBList];
+            }
+            return null; 
+        }
+
+        // --- Three.js Renderer (AANGEPAST) ---
+        function renderDrawerLayout(layoutData, totalW, totalD, wallT, ladeH) {
+            
+            // Verberg het gedetailleerde model als het bestaat
+            const detailedLayout = scene.getObjectByName('DetailedLayout');
+            if (detailedLayout) {
+                scene.remove(detailedLayout); // Verwijder het
+            }
+            
+            // Verberg de wisselknop
+            document.getElementById('toggleExplodedViewButton').style.display = 'none'; 
+            
+            // Verwijder het oude simpele model
+            const oldLayout = scene.getObjectByName('DrawerLayout');
+
+            if (oldLayout) {
+                oldLayout.children.slice(0).forEach(child => {
+                    if (child.isCSS2DObject) {
+                        child.parent.remove(child);
+                    }
+                });
+                scene.remove(oldLayout);
+            }
+
+            const layoutGroup = new THREE.Group();
+            layoutGroup.name = 'DrawerLayout';
+            wallsArray = []; 
+            clickableVakMeshes = []; 
+
+            const materialToUse = activeWoodMaterial;
+            const clickableVakMaterial = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide }); 
+            
+            const baseDepth = BODEM_DIKTE; 
+            const externalWallHeight = ladeH; 
+            const externalWallYPos = ladeH / 2; 
+
+            const internalWallHeight = ladeH - baseDepth; 
+            const internalWallYPos = baseDepth + (internalWallHeight / 2); 
+
+            // 1. Bodemplaat 
+            const baseWidth = totalW - (2 * wallT);
+            const basePlateDepth = totalD - (2 * wallT);
+            
+            const baseGeometry = new THREE.BoxGeometry(baseWidth, baseDepth, basePlateDepth);
+            baseMesh = new THREE.Mesh(baseGeometry, materialToUse); 
+            baseMesh.position.set(0, baseDepth / 2, 0); 
+            baseMesh.name = "DrawerBase"; 
+            layoutGroup.add(baseMesh);
+
+            // 2. Buitenmuren 
+            const placedBoundaries = new Set(); 
+            placeWallIfNew(wallT, totalD, -totalW / 2 + wallT / 2, 0, true, placedBoundaries, materialToUse, externalWallHeight, externalWallYPos, layoutGroup);
+            placeWallIfNew(wallT, totalD,  totalW / 2 - wallT / 2, 0, true, placedBoundaries, materialToUse, externalWallHeight, externalWallYPos, layoutGroup);
+            placeWallIfNew(totalW, wallT, 0, -totalD / 2 + wallT / 2, false, placedBoundaries, materialToUse, externalWallHeight, externalWallYPos, layoutGroup);
+            placeWallIfNew(totalW, wallT, 0,  totalD / 2 - wallT / 2, false, placedBoundaries, materialToUse, externalWallHeight, externalWallYPos, layoutGroup);
+
+            // 3. Interne Muren, Labels, en Klikvlakken
+            layoutData.forEach(vak => {
+                const rightWallX = vak.x + vak.width / 2 + wallT / 2;
+                if (rightWallX < (totalW / 2 - wallT / 2 - TOLERANCE)) {
+                    const wall = placeWallIfNew(wallT, vak.height, rightWallX, vak.y, true, placedBoundaries, materialToUse, internalWallHeight, internalWallYPos, layoutGroup); 
+                    if (wall) wallsArray.push(wall);
+                }
+                
+                const frontWallZ = vak.y + vak.height / 2 + wallT / 2;
+                if (frontWallZ < (totalD / 2 - wallT / 2 - TOLERANCE)) {
+                    const wall = placeWallIfNew(vak.width, wallT, vak.x, frontWallZ, false, placedBoundaries, materialToUse, internalWallHeight, internalWallYPos, layoutGroup); 
+                    if (wall) wallsArray.push(wall);
+                }
+
+                // 3D Dimensie Labels
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'dimension-label';
+                labelDiv.textContent = `${vak.width.toFixed(0)} x ${vak.height.toFixed(0)}`; 
+                
+                const label = new THREE.CSS2DObject(labelDiv);
+                label.position.set(vak.x, baseDepth + 1, vak.y); 
+                layoutGroup.add(label);
+
+                // Onzichtbare Klikvlakken
+                const vakPlaneGeo = new THREE.PlaneGeometry(vak.width, vak.height);
+                const vakPlane = new THREE.Mesh(vakPlaneGeo, clickableVakMaterial);
+                vakPlane.position.set(vak.x, baseDepth, vak.y); 
+                vakPlane.rotation.x = -Math.PI / 2; 
+                vakPlane.name = "ClickableVak";
+                vakPlane.userData.vakId = vak.id; 
+                layoutGroup.add(vakPlane);
+                clickableVakMeshes.push(vakPlane); 
+            });
+
+            scene.add(layoutGroup);
+            setupDragControls(); 
+        }
+        
+        // Hulpfunctie voor renderDrawerLayout
+        function placeWallIfNew(dim1, dim2, pos1, pos2, isVertical, placedBoundaries, wallMaterial, wallTotalHeight, wallYCenter, layoutGroup) {
+            const boundaryKey = `${pos1.toFixed(1)},${pos2.toFixed(1)},${isVertical}`;
+            if (placedBoundaries.has(boundaryKey)) return null;
+
+            let geometry, position;
+            if (isVertical) {
+                geometry = new THREE.BoxGeometry(dim1, wallTotalHeight, dim2);
+                position = new THREE.Vector3(pos1, wallYCenter, pos2);
+            } else { 
+                geometry = new THREE.BoxGeometry(dim1, wallTotalHeight, dim2);
+                position = new THREE.Vector3(pos1, wallYCenter, pos2);
+            }
+
+            const wall = new THREE.Mesh(geometry, wallMaterial); 
+            wall.position.copy(position);
+            wall.userData.isVertical = isVertical;
+            wall.userData.initialX = position.x;
+            wall.userData.initialY = position.y; 
+            wall.userData.initialZ = position.z;
+            
+            layoutGroup.add(wall);
+            placedBoundaries.add(boundaryKey);
+            return wall;
+        }
+
+        // --- Dynamisch Slepen Functies ---
+        function setupDragControls() {
+            if (dragControls) {
+                dragControls.dispose();
+            }
+
+            dragControls = new THREE.DragControls(wallsArray, camera, renderer.domElement);
+            
+            dragControls.addEventListener('dragstart', function (event) {
+                
+                if (isDeletingDivider) {
+                    const clickedWall = event.object;
+                    const neighbors = findDirectNeighbors(clickedWall, currentLayoutData);
+
+                    dragControls.deactivate(); 
+                    controls.enabled = true; 
+
+                    if (neighbors) { 
+                        if (confirm("Weet je zeker dat je deze lat wilt verwijderen?")) {
+                            mergeVaks(neighbors[0], neighbors[1], clickedWall.userData.isVertical);
+                        } else {
+                            resetClickMode(false); 
+                        }
+                    } else {
+                        alert("Dit is een buitenmuur en kan niet worden verwijderd.");
+                        resetClickMode(false);
+                    }
+                    return; 
+                }
+
+                controls.enabled = false;
+                const mesh = event.object;
+                
+                mesh.userData.dragAxis = mesh.userData.isVertical ? 'x' : 'z'; 
+                dragControls.axis = mesh.userData.dragAxis.toUpperCase(); 
+
+                mesh.position.y = mesh.userData.initialY; 
+                mesh.userData.lastGoodX = mesh.position.x;
+                mesh.userData.lastGoodZ = mesh.position.z;
+
+                const alignedMeshes = [mesh]; 
+                const axis = mesh.userData.isVertical ? 'x' : 'z';
+                const coord = mesh.userData.isVertical ? mesh.position.x : mesh.position.z;
+
+                for (const otherWall of wallsArray) {
+                    if (otherWall === mesh) continue;
+
+                    if (mesh.userData.isVertical && otherWall.userData.isVertical) {
+                        if (Math.abs(otherWall.position.x - coord) < TOLERANCE) {
+                            alignedMeshes.push(otherWall);
+                        }
+                    } else if (!mesh.userData.isVertical && !otherWall.userData.isVertical) {
+                        if (Math.abs(otherWall.position.z - coord) < TOLERANCE) {
+                            alignedMeshes.push(otherWall);
+                        }
+                    }
+                }
+                mesh.userData.alignedMeshes = alignedMeshes; 
+
+                const combinedVakAList = [];
+                const combinedVakBList = [];
+                let hasAtLeastOneNeighbor = false;
+
+                for (const alignedMesh of alignedMeshes) {
+                    const neighbors = findDirectNeighbors(alignedMesh, currentLayoutData);
+                    if (neighbors) {
+                        combinedVakAList.push(...neighbors[0]);
+                        combinedVakBList.push(...neighbors[1]);
+                        hasAtLeastOneNeighbor = true;
+                    }
+                }
+                
+                if (hasAtLeastOneNeighbor) {
+                    mesh.userData.vakAList = combinedVakAList;
+                    mesh.userData.vakBList = combinedVakBList;
+                } else {
+                    console.warn("Geen buren gevonden voor deze muur! Drag geblokkeerd.");
+                    controls.enabled = true; 
+                    dragControls.axis = null;
+                }
+            });
+            
+            dragControls.addEventListener('drag', function (event) {
+                if (!dragControls.axis) return;
+                
+                const mesh = event.object;
+                const { vakAList, vakBList, alignedMeshes } = mesh.userData;
+                
+                if (!vakAList || !vakBList) return; 
+                
+                const axis = mesh.userData.dragAxis; 
+                const dim = (axis === 'x') ? 'width' : 'height';
+                const coord = (axis === 'x') ? 'x' : 'y';
+
+                mesh.position.y = mesh.userData.initialY; 
+                if (axis === 'x') { 
+                    mesh.position.z = mesh.userData.initialZ; 
+                } else { 
+                    mesh.position.x = mesh.userData.initialX; 
+                }
+
+                let newWallCoord = (axis === 'x') ? mesh.position.x : mesh.position.z;
+                
+                let didSnap = false;
+                for (const otherWall of wallsArray) {
+                    if (otherWall === mesh) continue; 
+                    if (alignedMeshes && alignedMeshes.includes(otherWall)) continue;
+                    
+                    if (mesh.userData.isVertical && otherWall.userData.isVertical) {
+                        if (Math.abs(newWallCoord - otherWall.userData.initialX) < SNAP_THRESHOLD) {
+                            newWallCoord = otherWall.userData.initialX; 
+                            didSnap = true;
+                            break; 
+                        }
+                    } else if (!mesh.userData.isVertical && !otherWall.userData.isVertical) {
+                        if (Math.abs(newWallCoord - otherWall.userData.initialZ) < SNAP_THRESHOLD) {
+                            newWallCoord = otherWall.userData.initialZ; 
+                            didSnap = true;
+                            break; 
+                        }
+                    }
+                }
+                
+                if (didSnap) {
+                    mesh.position[axis] = newWallCoord;
+                }
+                
+                let constraintFailed = false;
+
+                for (const vakA of vakAList) {
+                    const newVakA_dim = (newWallCoord - (vakA[coord] - vakA[dim] / 2)) - WALL_THICKNESS / 2;
+                    if (newVakA_dim < MIN_DIMENSION) {
+                        constraintFailed = true;
+                        break;
+                    }
+                }
+
+                if (!constraintFailed) {
+                    for (const vakB of vakBList) {
+                        const newVakB_dim = ((vakB[coord] + vakB[dim] / 2) - newWallCoord) - WALL_THICKNESS / 2;
+                        if (newVakB_dim < MIN_DIMENSION) {
+                            constraintFailed = true;
+                            break;
+                        }
+                    }
+                }
+                
+                const lastGoodPos = (axis === 'x') ? mesh.userData.lastGoodX : mesh.userData.lastGoodZ;
+
+                if (constraintFailed) {
+                    mesh.position[axis] = lastGoodPos;
+                    
+                    if (alignedMeshes) {
+                        alignedMeshes.forEach(m => {
+                            if (m !== mesh) {
+                                m.position[axis] = lastGoodPos;
+                                m.position.y = m.userData.initialY;
+                                if (axis === 'x') { m.position.z = m.userData.initialZ; }
+                                else { m.position.x = m.userData.initialX; }
+                            }
+                        });
+                    }
+                    return; 
+                }
+                
+                if (axis === 'x') {
+                    mesh.userData.lastGoodX = mesh.position.x;
+                } else {
+                    mesh.userData.lastGoodZ = mesh.position.z;
+                }
+
+                if (alignedMeshes) {
+                    const finalPos = (axis === 'x') ? mesh.position.x : mesh.position.z;
+                    
+                    alignedMeshes.forEach(m => {
+                        if (m !== mesh) { 
+                            m.position[axis] = finalPos; 
+                            m.position.y = m.userData.initialY;
+                            if (axis === 'x') {
+                                m.position.z = m.userData.initialZ;
+                            } else {
+                                m.position.x = m.userData.initialX;
+                            }
+                        }
+                    });
+                }
+            });
+
+            dragControls.addEventListener('dragend', function (event) {
+                if (!dragControls.axis) { 
+                    controls.enabled = true;
+                    return;
+                }
+                
+                const mesh = event.object;
+                const { vakAList, vakBList } = mesh.userData;
+                
+                if (!vakAList || !vakBList) {
+                    controls.enabled = true;
+                    dragControls.axis = null;
+                    return;
+                }
+                
+                const axis = mesh.userData.dragAxis;
+                const dim = (axis === 'x') ? 'width' : 'height';
+                const coord = (axis === 'x') ? 'x' : 'y';
+
+                const finalWallCoord = (axis === 'x') ? mesh.position.x : mesh.position.z;
+
+                vakAList.forEach(vakA => {
+                    const newVakA_dim = (finalWallCoord - (vakA[coord] - vakA[dim] / 2)) - WALL_THICKNESS / 2;
+                    const vakAIndex = currentLayoutData.findIndex(v => v.id === vakA.id);
+                    if (vakAIndex > -1) { 
+                        currentLayoutData[vakAIndex][dim] = newVakA_dim;
+                        currentLayoutData[vakAIndex][coord] = finalWallCoord - (WALL_THICKNESS / 2) - (newVakA_dim / 2);
+                    }
+                });
+                
+                vakBList.forEach(vakB => {
+                    const newVakB_dim = ((vakB[coord] + vakB[dim] / 2) - finalWallCoord) - WALL_THICKNESS / 2;
+                    const vakBIndex = currentLayoutData.findIndex(v => v.id === vakB.id);
+                    if (vakBIndex > -1) { 
+                        currentLayoutData[vakBIndex][dim] = newVakB_dim;
+                        currentLayoutData[vakBIndex][coord] = finalWallCoord + (WALL_THICKNESS / 2) + (newVakB_dim / 2);
+                    }
+                });
+
+                renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+
+                controls.enabled = true; 
+                dragControls.axis = null;
+            });
+        }
+        
+        // --- VAK SELECTIE FUNCTIES ---
+
+        function findVakAtPoint(x, z) {
+            for (const vak of currentLayoutData) {
+                const halfWidth = vak.width / 2;
+                const halfHeight = vak.height / 2;
+                
+                const inX = x >= (vak.x - halfWidth) && x <= (vak.x + halfWidth);
+                const inZ = z >= (vak.y - halfHeight) && z <= (vak.y + halfHeight); 
+                
+                if (inX && inZ) {
+                    return vak;
+                }
+            }
+            return null;
+        }
+
+        function selectVak(vak) {
+            if (!vak) return;
+
+            selectedVakId = vak.id;
+            document.getElementById('vakEditor').style.display = 'block';
+            document.getElementById('vakIdDisplay').innerText = vak.id;
+            document.getElementById('vakWidthInput').value = vak.width.toFixed(0);
+            document.getElementById('vakHeightInput').value = vak.height.toFixed(0);
+            
+            const neighbors = {
+                right: findDirectNeighbor(vak, 'right'),
+                bottom: findDirectNeighbor(vak, 'bottom'),
+                left: findDirectNeighbor(vak, 'left'),
+                top: findDirectNeighbor(vak, 'top') 
+            };
+
+            document.getElementById('vakWidthInput').disabled = !neighbors.right && !neighbors.left;
+            document.getElementById('vakHeightInput').disabled = !neighbors.bottom && !neighbors.top;
+            
+            document.getElementById('vakWidthInput').placeholder = (!!neighbors.right || !!neighbors.left) ? "" : "Vergrendeld";
+            document.getElementById('vakHeightInput').placeholder = (!!neighbors.bottom || !!neighbors.top) ? "" : "Vergrendeld";
+            
+            document.getElementById('updateVakButton').disabled = false;
+        }
+
+        function handleVakUpdateFromSidebar() {
+            if (!selectedVakId) return;
+
+            const vakIndex = currentLayoutData.findIndex(v => v.id === selectedVakId);
+            if (vakIndex === -1) return;
+
+            const vak = currentLayoutData[vakIndex];
+            const newWidth = parseFloat(document.getElementById('vakWidthInput').value);
+            const newHeight = parseFloat(document.getElementById('vakHeightInput').value);
+
+            let widthChanged = Math.abs(newWidth - vak.width) > TOLERANCE;
+            let heightChanged = Math.abs(newHeight - vak.height) > TOLERANCE;
+
+            if (!widthChanged && !heightChanged) return; 
+
+            if (widthChanged) {
+                const widthDelta = newWidth - vak.width;
+                let neighbor = findDirectNeighbor(vak, 'right');
+                let direction = 'right';
+                
+                if (!neighbor) {
+                    neighbor = findDirectNeighbor(vak, 'left');
+                    direction = 'left';
+                }
+
+                if (!neighbor) {
+                    alert("Kan breedte niet aanpassen, geen buurman.");
+                    document.getElementById('vakWidthInput').value = vak.width.toFixed(0);
+                    return;
+                }
+                
+                const newNeighborWidth = neighbor.width - widthDelta; 
+                
+                if (newWidth < MIN_DIMENSION || newNeighborWidth < MIN_DIMENSION) {
+                    alert("Aanpassing mislukt: Vak wordt te klein (min 40mm).");
+                    document.getElementById('vakWidthInput').value = vak.width.toFixed(0);
+                    return;
+                }
+                
+                currentLayoutData[vakIndex].width = newWidth;
+                const neighborIndex = currentLayoutData.findIndex(v => v.id === neighbor.id);
+                currentLayoutData[neighborIndex].width = newNeighborWidth;
+
+                if (direction === 'right') {
+                    currentLayoutData[vakIndex].x += widthDelta / 2;
+                    currentLayoutData[neighborIndex].x += widthDelta / 2;
+                } else {
+                    currentLayoutData[vakIndex].x -= widthDelta / 2;
+                    currentLayoutData[neighborIndex].x -= widthDelta / 2;
+                }
+            }
+            
+            if (heightChanged) {
+                const heightDelta = newHeight - vak.height;
+                let neighbor = findDirectNeighbor(vak, 'bottom');
+                let direction = 'bottom';
+                
+                if (!neighbor) {
+                    neighbor = findDirectNeighbor(vak, 'top');
+                    direction = 'top';
+                }
+
+                if (!neighbor) {
+                    alert("Kan diepte niet aanpassen, geen buurman.");
+                    document.getElementById('vakHeightInput').value = vak.height.toFixed(0); 
+                    return;
+                }
+                
+                const newNeighborHeight = neighbor.height - heightDelta;
+                
+                if (newHeight < MIN_DIMENSION || newNeighborHeight < MIN_DIMENSION) {
+                    alert("Aanpassing mislukt: Vak wordt te klein (min 40mm).");
+                    document.getElementById('vakHeightInput').value = vak.height.toFixed(0);
+                    return;
+                }
+                
+                currentLayoutData[vakIndex].height = newHeight;
+                const neighborIndex = currentLayoutData.findIndex(v => v.id === neighbor.id);
+                currentLayoutData[neighborIndex].height = newNeighborHeight;
+
+                if (direction === 'bottom') {
+                    currentLayoutData[vakIndex].y += heightDelta / 2;
+                    currentLayoutData[neighborIndex].y += heightDelta / 2;
+                } else { // direction === 'top'
+                    currentLayoutData[vakIndex].y -= heightDelta / 2;
+                    currentLayoutData[neighborIndex].y -= heightDelta / 2;
+                }
+            }
+
+            renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+            selectVak(currentLayoutData[vakIndex]); 
+        }
+        
+        function findDirectNeighbor(vak, direction) {
+            const axis = (direction === 'right' || direction === 'left') ? 'x' : 'y';
+            const dim = (direction === 'right' || direction === 'left') ? 'width' : 'height';
+            const crossAxis = (direction === 'right' || direction === 'left') ? 'y' : 'x';
+            const crossDim = (direction === 'right' || direction === 'left') ? 'height' : 'width';
+
+            for (const otherVak of currentLayoutData) {
+                if (otherVak.id === vak.id) continue;
+                
+                let isNeighbor = false;
+                
+                if (direction === 'right') {
+                    isNeighbor = Math.abs((otherVak[axis] - otherVak[dim] / 2) - (vak[axis] + vak[dim] / 2) - WALL_THICKNESS) < TOLERANCE;
+                } else if (direction === 'left') {
+                    isNeighbor = Math.abs((otherVak[axis] + otherVak[dim] / 2) - (vak[axis] - vak[dim] / 2) + WALL_THICKNESS) < TOLERANCE;
+                } else if (direction === 'bottom') {
+                    isNeighbor = Math.abs((otherVak[axis] - otherVak[dim] / 2) - (vak[axis] + vak[dim] / 2) - WALL_THICKNESS) < TOLERANCE;
+                } else if (direction === 'top') {
+                    isNeighbor = Math.abs((otherVak[axis] + otherVak[dim] / 2) - (vak[axis] - vak[dim] / 2) + WALL_THICKNESS) < TOLERANCE;
+                }
+                
+                if (isNeighbor) {
+                    const vakMin = vak[crossAxis] - vak[crossDim] / 2;
+                    const vakMax = vak[crossAxis] + vak[crossDim] / 2;
+                    const otherMin = otherVak[crossAxis] - otherVak[crossDim] / 2;
+                    const otherMax = otherVak[crossAxis] + otherVak[crossDim] / 2;
+
+                    if (vakMax > otherMin + TOLERANCE && vakMin < otherMax - TOLERANCE) {
+                        return otherVak;
+                    }
+                }
+            }
+            return null;
+        }
+
+        // --- FUNCTIES VOOR (+) en (X) KNOPPEN ---
+
+        function startAddDivider(mode) { 
+            addDividerMode = mode; 
+            isDeletingDivider = false; 
+            if (dragControls) dragControls.enabled = false; 
+            controls.enabled = false; 
+            
+            document.getElementById('container').style.cursor = 'crosshair';
+            document.getElementById('deleteDividerButton').classList.remove('active-delete');
+            
+            let statusText = "Klik om ";
+            if (mode.startsWith('partial')) statusText += "dit vak te ";
+            if (mode.startsWith('full')) statusText += "volledig te ";
+            if (mode.includes('vertical')) statusText += "splitsen (V)";
+            if (mode.includes('horizontal')) statusText += "splitsen (H)";
+            
+            document.getElementById('layout-status').innerText = statusText + "...";
+            document.getElementById('vakEditor').style.display = 'none';
+            selectedVakId = null;
+        }
+        
+        function startDeleteDivider() {
+            isDeletingDivider = true;
+            addDividerMode = null;
+            if (dragControls) dragControls.enabled = true; 
+            controls.enabled = false; 
+
+            document.getElementById('container').style.cursor = 'default'; 
+            document.getElementById('layout-status').innerText = `Klik op een INTERNE lat om te verwijderen...`;
+            document.getElementById('vakEditor').style.display = 'none';
+            selectedVakId = null;
+            
+            document.getElementById('deleteDividerButton').classList.add('active-delete');
+        }
+
+        function splitVak(vak, direction, splitCoord) {
+            const vakIndex = currentLayoutData.findIndex(v => v.id === vak.id);
+            if (vakIndex === -1) return false; 
+
+            const oldVak = currentLayoutData[vakIndex];
+            
+            const ts = nextVakId++;
+            let vakA, vakB;
+
+            if (direction === 'vertical') {
+                const newWidth1 = splitCoord - (oldVak.x - oldVak.width / 2) - WALL_THICKNESS / 2;
+                const newWidth2 = (oldVak.x + oldVak.width / 2) - splitCoord - WALL_THICKNESS / 2;
+
+                if (newWidth1 < MIN_DIMENSION || newWidth2 < MIN_DIMENSION) {
+                    return false; 
+                }
+                
+                const newX1 = (oldVak.x - oldVak.width / 2) + newWidth1 / 2;
+                const newX2 = splitCoord + WALL_THICKNESS / 2 + newWidth2 / 2;
+
+                vakA = { ...oldVak, id: `V${ts}-A`, x: newX1, width: newWidth1 };
+                vakB = { ...oldVak, id: `V${ts}-B`, x: newX2, width: newWidth2 };
+
+            } else { // 'horizontal'
+                const newHeight1 = splitCoord - (oldVak.y - oldVak.height / 2) - WALL_THICKNESS / 2;
+                const newHeight2 = (oldVak.y + oldVak.height / 2) - splitCoord - WALL_THICKNESS / 2;
+
+                if (newHeight1 < MIN_DIMENSION || newHeight2 < MIN_DIMENSION) {
+                    return false;
+                }
+                
+                const newY1 = (oldVak.y - oldVak.height / 2) + newHeight1 / 2;
+                const newY2 = splitCoord + WALL_THICKNESS / 2 + newHeight2 / 2;
+
+                vakA = { ...oldVak, id: `V${ts}-A`, y: newY1, height: newHeight1 };
+                vakB = { ...oldVak, id: `V${ts}-B`, y: newY2, height: newHeight2 };
+            }
+            
+            currentLayoutData.splice(vakIndex, 1, vakA, vakB);
+            return true; // Succes
+        }
+
+        function mergeVaks(vakAList, vakBList, isVertical) {
+            const idsToRemove = [...vakAList.map(v => v.id), ...vakBList.map(v => v.id)];
+            currentLayoutData = currentLayoutData.filter(v => !idsToRemove.includes(v.id));
+
+            for (let i = 0; i < vakAList.length; i++) {
+                const vakA = vakAList[i];
+                const vakB = vakBList.find(b => 
+                    isVertical ? Math.abs(b.y - vakA.y) < TOLERANCE : Math.abs(b.x - vakA.x) < TOLERANCE
+                );
+                
+                if (!vakB) { 
+                    console.warn("Geen buur gevonden voor", vakA.id);
+                    currentLayoutData.push(vakA);
+                    continue;
+                }
+
+                const ts = nextVakId++;
+                let newVak;
+                
+                if (isVertical) {
+                    const newWidth = vakA.width + vakB.width + WALL_THICKNESS;
+                    const newX = vakA.x - (vakA.width / 2) + (newWidth / 2);
+                    newVak = { ...vakA, id: `V${ts}`, x: newX, width: newWidth, height: vakA.height };
+                } else {
+                    const newHeight = vakA.height + vakB.height + WALL_THICKNESS;
+                    const newY = vakA.y - (vakA.height / 2) + (newHeight / 2); 
+                    newVak = { ...vakA, id: `V${ts}`, y: newY, height: newHeight, width: vakA.width };
+                }
+                currentLayoutData.push(newVak);
+            }
+            
+            renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+            resetClickMode(true); 
+        }
+
+        // --- AANGEPASTE KLIKFUNCTIE ---
+        function onSceneClick(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = - ((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            if (isDeletingDivider) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(clickableVakMeshes);
+                if (intersects.length > 0) {
+                    resetClickMode(true); 
+                }
+                return; 
+            }
+            
+            if (controls.enabled === false && !addDividerMode) return; 
+
+            raycaster.setFromCamera(mouse, camera);
+            
+            if (addDividerMode) {
+                // MODUS: LAT TOEVOEGEN
+                const intersects = raycaster.intersectObjects(clickableVakMeshes); 
+                
+                if (intersects.length > 0) {
+                    const clickPoint = intersects[0].point;
+                    const direction = addDividerMode.includes('vertical') ? 'vertical' : 'horizontal';
+                    let splitCoord = (direction === 'vertical') ? clickPoint.x : clickPoint.z;
+
+                    const clickedVakId = intersects[0].object.userData.vakId;
+                    const clickedVak = currentLayoutData.find(v => v.id === clickedVakId);
+
+                    if (clickedVak) { 
+                        if (direction === 'vertical') {
+                            const vakCenterX = clickedVak.x;
+                            if (Math.abs(splitCoord - vakCenterX) < MIDDLE_SNAP_THRESHOLD) {
+                                splitCoord = vakCenterX; 
+                            }
+                        } else { 
+                            const vakCenterY = clickedVak.y;
+                            if (Math.abs(splitCoord - vakCenterY) < MIDDLE_SNAP_THRESHOLD) {
+                                splitCoord = vakCenterY; 
+                            }
+                        }
+                    }
+
+                    if (addDividerMode.startsWith('partial')) {
+                        if (clickedVak) {
+                            if (!splitVak(clickedVak, direction, splitCoord)) {
+                                alert("Fout: Vak is te klein om op deze positie te splitsen.");
+                            } else {
+                                renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+                            }
+                        }
+                    } else if (addDividerMode.startsWith('full')) {
+                        let vaksToSplit;
+                        if (direction === 'vertical') {
+                            vaksToSplit = currentLayoutData.filter(vak => 
+                                (vak.x - vak.width / 2 - TOLERANCE) < splitCoord && 
+                                (vak.x + vak.width / 2 + TOLERANCE) > splitCoord
+                            );
+                        } else {
+                            vaksToSplit = currentLayoutData.filter(vak => 
+                                (vak.y - vak.height / 2 - TOLERANCE) < splitCoord && 
+                                (vak.y + vak.height / 2 + TOLERANCE) > splitCoord
+                            );
+                        }
+
+                        const vaksDataToSplit = [...vaksToSplit]; 
+                        let successCount = 0;
+                        let failCount = 0;
+
+                        vaksDataToSplit.forEach(vak => {
+                            if (splitVak(vak, direction, splitCoord)) {
+                                successCount++;
+                            } else {
+                                failCount++;
+                            }
+                        });
+
+                        if (successCount > 0) {
+                            renderDrawerLayout(currentLayoutData, DRAW_W, DRAW_D, WALL_THICKNESS, LADE_HOOGTE);
+                            if (failCount > 0) {
+                                alert(`${successCount} vak(ken) gesplitst. ${failCount} vak(ken) waren te klein.`);
+                            }
+                        } else {
+                            alert("Geen vakken gesplitst (mogelijk te klein).");
+                        }
+                    }
+                }
+                resetClickMode(false); 
+
+            } else {
+                // MODUS: SELECTEREN
+                const intersects = raycaster.intersectObjects(clickableVakMeshes); 
+                if (intersects.length > 0) {
+                    const clickedVakId = intersects[0].object.userData.vakId;
+                    const clickedVak = currentLayoutData.find(v => v.id === clickedVakId);
+                    if (clickedVak) {
+                        selectVak(clickedVak);
+                    } else {
+                        resetClickMode(true); 
+                    }
+                } else {
+                    resetClickMode(true); 
+                }
+            }
+        }
+
+        // --- AANGEPASTE FUNCTIE ---
+        function resetClickMode(hideEditor = true) {
+            if (addDividerMode) {
+                addDividerMode = null;
+            }
+            if (isDeletingDivider) {
+                isDeletingDivider = false;
+                document.getElementById('deleteDividerButton').classList.remove('active-delete');
+            }
+            
+            if (dragControls) dragControls.enabled = true; 
+            controls.enabled = true; 
+            
+            document.getElementById('container').style.cursor = 'default';
+            document.getElementById('layout-status').innerText = `Lade: ${DRAW_W}x${DRAW_D}x${LADE_HOOGTE}mm | Vakken: ${currentLayoutData.length}`;
+            
+            if (hideEditor) {
+                document.getElementById('vakEditor').style.display = 'none';
+                selectedVakId = null;
+            }
+        }
+        
+        // ---
+        // --- HIER BEGINT DE CODE VOOR CSG EN DE EXPORT ---
+        // ---
+        
+        // --- HELPER FUNCTIE: BEREKENT ALLE ONDERDELEN ---
+        function getLayoutParts() {
+            const wallT = WALL_THICKNESS;
+            const baseT = BODEM_DIKTE;
+            const ladeH = LADE_HOOGTE;
+            const totalW = DRAW_W;
+            const totalD = DRAW_D;
+            
+            const innerWallH = ladeH - baseT;
+            const innerW = totalW - (2 * wallT);
+            const innerD = totalD - (2 * wallT);
+            
+            const yPosWall = ladeH / 2; // Y-center voor buitenmuren
+            const yPosInnerWall = baseT + innerWallH / 2; // Y-center voor interne latten
+            const yPosBase = baseT / 2; // Y-center voor bodem
+            
+            let parts = {
+                outerWalls: [],
+                basePlate: null,
+                internalDividers: []
+            };
+
+            // 1. Bodemplaat
+            parts.basePlate = {
+                id: 'base',
+                type: 'base',
+                width: innerW, 
+                height: baseT, 
+                depth: innerD,
+                position: new THREE.Vector3(0, yPosBase, 0)
+            };
+
+            // 2. Buitenmuren
+            parts.outerWalls.push({
+                id: 'wall_left',
+                type: 'wall',
+                isVertical: true, // Loopt in Z-richting
+                width: wallT, 
+                height: ladeH, 
+                depth: totalD,
+                position: new THREE.Vector3(-totalW / 2 + wallT / 2, yPosWall, 0)
+            });
+            parts.outerWalls.push({
+                id: 'wall_right',
+                type: 'wall',
+                isVertical: true,
+                width: wallT, 
+                height: ladeH, 
+                depth: totalD,
+                position: new THREE.Vector3(totalW / 2 - wallT / 2, yPosWall, 0)
+            });
+            parts.outerWalls.push({
+                id: 'wall_back',
+                type: 'wall',
+                isVertical: false, // Loopt in X-richting
+                width: innerW, 
+                height: ladeH, 
+                depth: wallT,
+                position: new THREE.Vector3(0, yPosWall, -totalD / 2 + wallT / 2)
+            });
+            parts.outerWalls.push({
+                id: 'wall_front',
+                type: 'wall',
+                isVertical: false,
+                width: innerW, 
+                height: ladeH, 
+                depth: wallT,
+                position: new THREE.Vector3(0, yPosWall, totalD / 2 - wallT / 2)
+            });
+
+            // 3. Interne Latten
+            const placedBoundaries = new Set();
+            currentLayoutData.forEach(vak => {
+                // Interne Verticale muur (loopt in Z-richting)
+                const rightWallX = vak.x + vak.width / 2 + wallT / 2;
+                if (rightWallX < (totalW / 2 - wallT / 2 - TOLERANCE)) {
+                    const boundaryKey = `v,${rightWallX.toFixed(1)},${vak.y.toFixed(1)},${vak.height.toFixed(1)}`;
+                    if (!placedBoundaries.has(boundaryKey)) {
+                        placedBoundaries.add(boundaryKey);
+                        parts.internalDividers.push({
+                            id: `divider_${boundaryKey}`,
+                            type: 'divider_v',
+                            isVertical: true,
+                            width: wallT, 
+                            height: innerWallH, 
+                            depth: vak.height, 
+                            position: new THREE.Vector3(rightWallX, yPosInnerWall, vak.y)
+                        });
+                    }
+                }
+                
+                // Interne Horizontale muur (loopt in X-richting)
+                const frontWallZ = vak.y + vak.height / 2 + wallT / 2;
+                if (frontWallZ < (totalD / 2 - wallT / 2 - TOLERANCE)) {
+                    const boundaryKey = `h,${frontWallZ.toFixed(1)},${vak.x.toFixed(1)},${vak.width.toFixed(1)}`;
+                    if (!placedBoundaries.has(boundaryKey)) {
+                        placedBoundaries.add(boundaryKey);
+                        parts.internalDividers.push({
+                            id: `divider_${boundaryKey}`,
+                            type: 'divider_h',
+                            isVertical: false,
+                            width: vak.width, 
+                            height: innerWallH, 
+                            depth: wallT,
+                            position: new THREE.Vector3(vak.x, yPosInnerWall, frontWallZ)
+                        });
+                    }
+                }
+            });
+            
+            return parts;
+        }
+
+        // --- FUNCTIE VOOR JSON EXPORT (VOOR CNC) ---
+        function exportSawList() {
+            const parts = getLayoutParts();
+            let productionData = [];
+
+            // --- 1. Bereken alle snedes (Cuts) ---
+            const wallT = WALL_THICKNESS;
+            const dadoDepth = wallT / 2; 
+
+            const internalDividers = parts.internalDividers;
+            const verticalDividers = internalDividers.filter(p => p.isVertical);
+            const horizontalDividers = internalDividers.filter(p => !p.isVertical);
+
+            let allCuts = {}; // { partId: [ {type: 'dado', ...}, {type: 'lap', ...} ] }
+
+            const addCut = (targetId, cutData) => {
+                if (!allCuts[targetId]) allCuts[targetId] = [];
+                allCuts[targetId].push(cutData);
+            };
+
+            // 1.1 Dado (Gleuf) Bewerkingen
+            internalDividers.forEach(divider => {
+                const pos = divider.position;
+                const outerWalls = parts.outerWalls.reduce((acc, w) => ({ ...acc, [w.id]: w.position }), {});
+
+                if (!divider.isVertical) {
+                    const halfLen = divider.width / 2;
+                    if (Math.abs((pos.x - halfLen) - (outerWalls['wall_left'].x + wallT / 2)) < TOLERANCE) {
+                        addCut('wall_left', {
+                            type: 'dado',
+                            axis: 'z', // Freesrichting
+                            center: pos.z.toFixed(2),
+                            length: divider.depth.toFixed(2), // Dikte van lat
+                            depth: dadoDepth.toFixed(2)
+                        });
+                    }
+                    if (Math.abs((pos.x + halfLen) - (outerWalls['wall_right'].x - wallT / 2)) < TOLERANCE) {
+                        addCut('wall_right', {
+                            type: 'dado',
+                            axis: 'z',
+                            center: pos.z.toFixed(2),
+                            length: divider.depth.toFixed(2),
+                            depth: dadoDepth.toFixed(2)
+                        });
+                    }
+                }
+                
+                if (divider.isVertical) {
+                    const halfLen = divider.depth / 2;
+                    if (Math.abs((pos.z - halfLen) - (outerWalls['wall_back'].z + wallT / 2)) < TOLERANCE) {
+                        addCut('wall_back', {
+                            type: 'dado',
+                            axis: 'x', // Freesrichting
+                            center: pos.x.toFixed(2),
+                            length: divider.width.toFixed(2), // Dikte van lat
+                            depth: dadoDepth.toFixed(2)
+                        });
+                    }
+                    if (Math.abs((pos.z + halfLen) - (outerWalls['wall_front'].z - wallT / 2)) < TOLERANCE) {
+                        addCut('wall_front', {
+                            type: 'dado',
+                            axis: 'x',
+                            center: pos.x.toFixed(2),
+                            length: divider.width.toFixed(2),
+                            depth: dadoDepth.toFixed(2)
+                        });
+                    }
+                }
+            });
+
+            // 1.2 Half-Lap (Halfhouts) Bewerkingen
+            verticalDividers.forEach(vDiv => {
+                horizontalDividers.forEach(hDiv => {
+                    const v_minX = vDiv.position.x - vDiv.width / 2;
+                    const v_maxX = vDiv.position.x + vDiv.width / 2;
+                    const v_minZ = vDiv.position.z - vDiv.depth / 2;
+                    const v_maxZ = vDiv.position.z + vDiv.depth / 2;
+                    const h_minX = hDiv.position.x - hDiv.width / 2;
+                    const h_maxX = hDiv.position.x + hDiv.width / 2;
+                    const h_minZ = hDiv.position.z - hDiv.depth / 2;
+                    const h_maxZ = hDiv.position.z + hDiv.depth / 2;
+                    const intersects = (v_minX < h_maxX && v_maxX > h_minX && v_minZ < h_maxZ && v_maxZ > h_minZ);
+
+                    if (intersects) {
+                        const lapDepth = (vDiv.height / 2).toFixed(2);
+                        
+                        addCut(hDiv.id, {
+                            type: 'lap',
+                            center: vDiv.position.x.toFixed(2), // X-positie op de plank
+                            length: wallT.toFixed(2), // Breedte van de lap
+                            depth: lapDepth,
+                            side: 'top'
+                        });
+
+                        addCut(vDiv.id, {
+                            type: 'lap',
+                            center: hDiv.position.z.toFixed(2), // Z-positie op de plank
+                            length: wallT.toFixed(2), 
+                            depth: lapDepth,
+                            side: 'bottom'
+                        });
+                    }
+                });
+            });
+
+            // --- 2. Combineer Part Data met Cut Data ---
+            const allParts = [...parts.outerWalls, ...parts.internalDividers, parts.basePlate];
+            
+            allParts.forEach(part => {
+                const partId = part.id;
+                
+                let dims;
+                if (part.type === 'base') {
+                    dims = { L: part.width.toFixed(2), D: part.depth.toFixed(2), T: part.height.toFixed(2) };
+                } else {
+                    const length = part.isVertical ? part.depth : part.width;
+                    const thickness = part.isVertical ? part.width : part.depth;
+                    dims = { L: length.toFixed(2), H: part.height.toFixed(2), T: thickness.toFixed(2) };
+                }
+
+                productionData.push({
+                    id: partId,
+                    description: part.type === 'base' ? "Bodemplaat" : (part.id.includes('wall') ? `Buitenwand ${partId.split('_')[1]}` : 'Interne Lat'),
+                    dims: dims,
+                    cuts: allCuts[partId] || []
+                });
+            });
+            
+            // --- 3. Exporteer als JSON ---
+            const jsonString = JSON.stringify(productionData, null, 2);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lade_productiedata_${DRAW_W}x${DRAW_D}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+            
+            document.getElementById('layout-status').innerText = `✅ Productiedata geëxporteerd als JSON.`;
+        }
+        
+        // --- FUNCTIE: Wrapper om het gedetailleerde model te bouwen (MET CAMERA) ---
+        function buildDetailedModel() {
+            isExplodedView = true; 
+            renderDetailedModel(); 
+            document.getElementById('toggleExplodedViewButton').style.display = 'block';
+
+            const detailedGroup = scene.getObjectByName('DetailedLayout');
+            if (!detailedGroup) return; 
+
+            const boundingBox = new THREE.Box3().setFromObject(detailedGroup);
+            const center = new THREE.Vector3();
+            const size = new THREE.Vector3();
+            boundingBox.getCenter(center);
+            boundingBox.getSize(size);
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            cameraZ *= 1.5; 
+            
+            camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z);
+            controls.target.copy(center);
+            controls.update();
+        }
+
+        // --- FUNCTIE: Wisselt tussen explosie en gemonteerd ---
+        function toggleExplodedView() {
+            const detailedGroup = scene.getObjectByName('DetailedLayout');
+            if (!detailedGroup) return; 
+
+            isExplodedView = !isExplodedView; 
+
+            detailedGroup.children.forEach(mesh => {
+                if (mesh.userData.assembledPosition && mesh.userData.explosionVector) {
+                    if (isExplodedView) {
+                        mesh.position.copy(mesh.userData.assembledPosition).add(mesh.userData.explosionVector);
+                    } else {
+                        mesh.position.copy(mesh.userData.assembledPosition);
+                    }
+                }
+            });
+            
+            const statusText = isExplodedView ? " (explosie-weergave)" : " (gemonteerd)";
+            document.getElementById('layout-status').innerText = "Gedetailleerd model getoond" + statusText;
+        }
+
+        // --- FUNCTIE: GEDETAILLEERDE RENDERING (MET CSG & FIX) ---
+        function renderDetailedModel() {
+            const simpleLayout = scene.getObjectByName('DrawerLayout');
+            if (simpleLayout) simpleLayout.visible = false;
+            
+            const oldDetailedLayout = scene.getObjectByName('DetailedLayout');
+            if (oldDetailedLayout) scene.remove(oldDetailedLayout);
+            
+            const detailedGroup = new THREE.Group();
+            detailedGroup.name = 'DetailedLayout';
+            
+            const materialToUse = getWoodMaterial(document.getElementById('materialSelect').value);
+            const EXPLOSION_FACTOR = 50; 
+            
+            const parts = getLayoutParts();
+            const wallT = WALL_THICKNESS;
+            
+            // ANTI-COPLANAR FIX
+            const FIX_OVERLAP = 1; 
+            const dadoDepth = (wallT / 2) + FIX_OVERLAP; 
+            
+            let meshes = {};
+            parts.outerWalls.forEach(part => {
+                const geo = new THREE.BoxGeometry(part.width, part.height, part.depth);
+                const mesh = new THREE.Mesh(geo, materialToUse);
+                mesh.position.copy(part.position);
+                mesh.userData.part = part; 
+                meshes[part.id] = mesh;
+            });
+            const basePart = parts.basePlate;
+            const baseGeo = new THREE.BoxGeometry(basePart.width, basePart.height, basePart.depth);
+            const baseMesh = new THREE.Mesh(baseGeo, materialToUse);
+            baseMesh.position.copy(basePart.position);
+            baseMesh.userData.part = basePart; 
+            meshes[basePart.id] = baseMesh;
+            parts.internalDividers.forEach(part => {
+                const geo = new THREE.BoxGeometry(part.width, part.height, part.depth);
+                const mesh = new THREE.Mesh(geo, materialToUse);
+                mesh.position.copy(part.position);
+                mesh.userData.part = part;
+                meshes[part.id] = mesh;
+            });
+
+            // STAP 3: Bereken verbindingen (Dados/Gleuven)
+            let dadoCutters = [];
+            parts.internalDividers.forEach(divider => {
+                const pos = divider.position;
+                
+                const cutterGeo = new THREE.BoxGeometry(
+                    divider.isVertical ? dadoDepth : divider.width,
+                    divider.height,
+                    divider.isVertical ? divider.depth : dadoDepth
+                );
+
+                let cutterMesh = null;
+                const outerWalls = parts.outerWalls.reduce((acc, w) => ({ ...acc, [w.id]: w.position }), {});
+
+                if (!divider.isVertical) {
+                    const halfLen = divider.width / 2;
+                    if (Math.abs((pos.x - halfLen) - (outerWalls['wall_left'].x + wallT / 2)) < TOLERANCE) {
+                        cutterMesh = new THREE.Mesh(cutterGeo);
+                        let cutterPos = new THREE.Vector3(outerWalls['wall_left'].x + (FIX_OVERLAP / 2), pos.y, pos.z);
+                        cutterMesh.position.copy(cutterPos);
+                        dadoCutters.push({ targetId: 'wall_left', cutter: cutterMesh });
+                    }
+                    if (Math.abs((pos.x + halfLen) - (outerWalls['wall_right'].x - wallT / 2)) < TOLERANCE) {
+                        cutterMesh = new THREE.Mesh(cutterGeo);
+                        let cutterPos = new THREE.Vector3(outerWalls['wall_right'].x - (FIX_OVERLAP / 2), pos.y, pos.z);
+                        cutterMesh.position.copy(cutterPos);
+                        dadoCutters.push({ targetId: 'wall_right', cutter: cutterMesh });
+                    }
+                }
+                if (divider.isVertical) {
+                    const halfLen = divider.depth / 2;
+                    if (Math.abs((pos.z - halfLen) - (outerWalls['wall_back'].z + wallT / 2)) < TOLERANCE) {
+                        cutterMesh = new THREE.Mesh(cutterGeo);
+                        let cutterPos = new THREE.Vector3(pos.x, pos.y, outerWalls['wall_back'].z + (FIX_OVERLAP / 2));
+                        cutterMesh.position.copy(cutterPos);
+                        dadoCutters.push({ targetId: 'wall_back', cutter: cutterMesh });
+                    }
+                    if (Math.abs((pos.z + halfLen) - (outerWalls['wall_front'].z - wallT / 2)) < TOLERANCE) {
+                        cutterMesh = new THREE.Mesh(cutterGeo);
+                        let cutterPos = new THREE.Vector3(pos.x, pos.y, outerWalls['wall_front'].z - (FIX_OVERLAP / 2));
+                        cutterMesh.position.copy(cutterPos);
+                        dadoCutters.push({ targetId: 'wall_front', cutter: cutterMesh });
+                    }
+                }
+            });
+
+            // STAP 4: Bereken verbindingen (Half-Laps)
+            let lapCutters = [];
+            const verticalDividers = parts.internalDividers.filter(p => p.isVertical);
+            const horizontalDividers = parts.internalDividers.filter(p => !p.isVertical);
+            verticalDividers.forEach(vDiv => {
+                horizontalDividers.forEach(hDiv => {
+                    const v_minX = vDiv.position.x - vDiv.width / 2;
+                    const v_maxX = vDiv.position.x + vDiv.width / 2;
+                    const v_minZ = vDiv.position.z - vDiv.depth / 2;
+                    const v_maxZ = vDiv.position.z + vDiv.depth / 2;
+                    const h_minX = hDiv.position.x - hDiv.width / 2;
+                    const h_maxX = hDiv.position.x + hDiv.width / 2;
+                    const h_minZ = hDiv.position.z - hDiv.depth / 2;
+                    const h_maxZ = hDiv.position.z + hDiv.depth / 2;
+                    const intersects = (v_minX < h_maxX && v_maxX > h_minX && v_minZ < h_maxZ && v_maxZ > h_minZ);
+                    if (intersects) {
+                        const intersectX = vDiv.position.x;
+                        const intersectZ = hDiv.position.z;
+                        const intersectY = vDiv.position.y;
+                        const intersectHeight = vDiv.height;
+
+                        const cutterHeight = (intersectHeight / 2) + FIX_OVERLAP;
+
+                        const cutterTopGeo = new THREE.BoxGeometry(wallT, cutterHeight, wallT);
+                        const cutterTop = new THREE.Mesh(cutterTopGeo);
+                        cutterTop.position.set(intersectX, intersectY + (intersectHeight / 4) + (FIX_OVERLAP / 2), intersectZ);
+                        lapCutters.push({ targetId: hDiv.id, cutter: cutterTop });
+
+                        const cutterBottomGeo = new THREE.BoxGeometry(wallT, cutterHeight, wallT);
+                        const cutterBottom = new THREE.Mesh(cutterBottomGeo);
+                        cutterBottom.position.set(intersectX, intersectY - (intersectHeight / 4) - (FIX_OVERLAP / 2), intersectZ);
+                        lapCutters.push({ targetId: vDiv.id, cutter: cutterBottom });
+                    }
+                });
+            });
+
+            // STAP 5: Voer alle CSG-operaties uit
+            const allCutters = dadoCutters.concat(lapCutters);
+            const cuttersByTarget = allCutters.reduce((acc, op) => {
+                if (!acc[op.targetId]) acc[op.targetId] = [];
+                acc[op.targetId].push(op.cutter);
+                return acc;
+            }, {});
+            try {
+                Object.keys(meshes).forEach(id => {
+                    let targetMesh = meshes[id];
+                    if (cuttersByTarget[id]) {
+                        targetMesh.updateMatrix(); 
+                        let cutters = cuttersByTarget[id];
+                        
+                        let combinedCutter = cutters[0];
+                        combinedCutter.updateMatrix();
+                        
+                        if (cutters.length > 1) {
+                            for (let i = 1; i < cutters.length; i++) {
+                                cutters[i].updateMatrix();
+                                combinedCutter = CSG.union(combinedCutter, cutters[i]);
+                            }
+                        }
+
+                        const processedMesh = CSG.subtract(targetMesh, combinedCutter);
+                        processedMesh.userData = targetMesh.userData; 
+                        meshes[id] = processedMesh; 
+                    }
+                });
+            } catch (e) {
+                console.error("Fout tijdens CSG-operatie:", e);
+            }
+
+            // STAP 6: Voeg meshes toe aan scene & pas explosie toe
+            Object.values(meshes).forEach(mesh => {
+                const part = mesh.userData.part; 
+                
+                mesh.userData.assembledPosition = mesh.position.clone();
+                let explosionVector = new THREE.Vector3(0, 0, 0); 
+                
+                if (part && part.id !== 'base') { 
+                    if (part.type === 'wall') {
+                        if (part.id === 'wall_left') explosionVector.x = -EXPLOSION_FACTOR;
+                        if (part.id === 'wall_right') explosionVector.x = EXPLOSION_FACTOR;
+                        if (part.id === 'wall_back') explosionVector.z = -EXPLOSION_FACTOR;
+                        if (part.id === 'wall_front') explosionVector.z = EXPLOSION_FACTOR;
+                    } 
+                    else if (part.type.startsWith('divider')) {
+                        if (part.position.x > TOLERANCE) explosionVector.x = EXPLOSION_FACTOR;
+                        if (part.position.x < -TOLERANCE) explosionVector.x = -EXPLOSION_FACTOR;
+                        if (part.position.z > TOLERANCE) explosionVector.z = EXPLOSION_FACTOR;
+                        if (part.position.z < -TOLERANCE) explosionVector.z = -EXPLOSION_FACTOR;
+                    }
+                }
+                
+                mesh.userData.explosionVector = explosionVector;
+                
+                if (isExplodedView) {
+                    mesh.position.add(explosionVector);
+                }
+                
+                detailedGroup.add(mesh);
+            });
+
+            scene.add(detailedGroup);
+            
+            const statusText = isExplodedView ? " (explosie-weergave)" : " (gemonteerd)";
+            document.getElementById('layout-status').innerText = "Gedetailleerd model gebouwd" + statusText;
+        }
+
+        // --- Initialisatie & Animatie ---
+
+        function init() {
+            try {
+                const container = document.getElementById('container');
+                const width = container.clientWidth;
+                const height = window.innerHeight; 
+
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf4f4f4);
+                
+                camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 2000); 
+
+                renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(width, height);
+                renderer.domElement.style.position = 'absolute';
+                renderer.domElement.style.top = '0';
+                renderer.domElement.style.zIndex = '1';
+                container.appendChild(renderer.domElement);
+
+                labelRenderer = new THREE.CSS2DRenderer();
+                labelRenderer.setSize(width, height);
+                labelRenderer.domElement.style.position = 'absolute';
+                labelRenderer.domElement.style.top = '0';
+                labelRenderer.domElement.style.zIndex = '2'; 
+                labelRenderer.domElement.style.pointerEvents = 'none'; 
+                container.appendChild(labelRenderer.domElement);
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); 
+                scene.add(ambientLight);
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                directionalLight.position.set(100, 500, 500); 
+                scene.add(directionalLight);
+
+                controls = new THREE.OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true;
+
+                raycaster = new THREE.Raycaster();
+                mouse = new THREE.Vector2();
+                
+                renderer.domElement.addEventListener('click', onSceneClick, false);
+                
+                // Textuur lader
+                const loadingManager = new THREE.LoadingManager();
+                loadingManager.onStart = function (url, itemsLoaded, itemsTotal) {
+                    document.getElementById('loadingOverlay').style.display = 'flex';
+                };
+                loadingManager.onLoad = function () {
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                    updateDrawerDimensions(true); 
+                };
+                loadingManager.onProgress = function (url, itemsLoaded, itemsTotal) {
+                    document.getElementById('loadingOverlay').innerText = `Texturen laden... (${itemsLoaded}/${itemsTotal})`;
+                };
+                loadingManager.onError = function (url) {
+                    console.error('Fout bij laden textuur:', url);
+                    document.getElementById('loadingOverlay').innerText = `Fout bij laden textuur! (${url})`;
+                    updateDrawerDimensions(true); 
+                };
+
+                textureLoader = new THREE.TextureLoader(loadingManager);
+                textureLoader.setCrossOrigin('anonymous');
+
+                woodTexture = textureLoader.load('https://images.pexels.com/photos/5776224/pexels-photo-5776224.png'); 
+                
+                activeWoodMaterial = getWoodMaterial(document.getElementById('materialSelect').value);
+
+                animate();
+
+                window.addEventListener('resize', onWindowResize, false);
+            } catch (e) {
+                alert("Er is een fatale fout opgetreden bij het initialiseren: ".concat(e.message));
+                document.body.innerHTML = "Startfout: " + e.message; 
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera); 
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('container');
+            const width = container.clientWidth;
+            const height = window.innerHeight; 
+            
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            labelRenderer.setSize(width, height); 
+        }
+
+        // Start de applicatie
+        init();
+    </script>
+</body>
+</html>
